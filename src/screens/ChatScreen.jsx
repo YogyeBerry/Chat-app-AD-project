@@ -74,6 +74,7 @@ export default function ChatScreen() {
         currentUser?.id
       );
       setMessages(history);
+      setError(null);
     } catch (err) {
       if (!silent) {
         setError(err.message || 'Failed to retrieve message history');
@@ -100,6 +101,35 @@ export default function ChatScreen() {
       }
     };
   }, [conversation?.id, loadMessages]);
+
+  // Retry sending a previously failed message
+  const handleRetryMessage = async (failedMsg) => {
+    // Mark back to sending status
+    setMessages((prev) =>
+      prev.map((m) => (m.id === failedMsg.id ? { ...m, status: 'sending' } : m))
+    );
+
+    try {
+      const sentMessage = await conversationService.sendMessage(
+        baseUrl,
+        {
+          conversation_id: failedMsg.conversationId,
+          content: failedMsg.content,
+          media_url: failedMsg.mediaUrl || undefined,
+        },
+        currentUser?.id
+      );
+
+      setMessages((prev) =>
+        prev.map((m) => (m.id === failedMsg.id ? { ...sentMessage, isMine: true } : m))
+      );
+    } catch (err) {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === failedMsg.id ? { ...m, status: 'failed' } : m))
+      );
+      Alert.alert('Retry Failed', err.message || 'Could not deliver message on retry.');
+    }
+  };
 
   // Handle sending text message with optimistic update
   const handleSendMessage = async () => {
@@ -148,7 +178,7 @@ export default function ChatScreen() {
       setMessages((prev) =>
         prev.map((msg) => (msg.id === tempId ? { ...msg, status: 'failed' } : msg))
       );
-      Alert.alert('Send Failed', err.message || 'Could not deliver message.');
+      Alert.alert('Send Failed', err.message || 'Could not deliver message. Tap bubble to retry.');
     } finally {
       setSending(false);
     }
@@ -161,6 +191,16 @@ export default function ChatScreen() {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
       <View style={styles.innerContainer}>
+        {error && (
+          <View style={styles.errorBanner}>
+            <Ionicons name="cloud-offline-outline" size={16} color={COLORS.error} />
+            <Text style={styles.errorBannerText}>{error}</Text>
+            <TouchableOpacity onPress={() => loadMessages(true)}>
+              <Text style={styles.errorRetryText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {initLoading ? (
           <View style={styles.centerContainer}>
             <ActivityIndicator size="large" color={COLORS.primary} />
@@ -177,10 +217,26 @@ export default function ChatScreen() {
             data={messages}
             keyExtractor={(item) => String(item.id)}
             renderItem={({ item }) => (
-              <MessageBubble
-                message={item}
-                showSender={Boolean(conversation?.isGroup)}
-              />
+              <TouchableOpacity
+                activeOpacity={item.status === 'failed' ? 0.6 : 1}
+                onPress={() => {
+                  if (item.status === 'failed') {
+                    Alert.alert(
+                      'Failed Message',
+                      'Do you want to retry sending this message?',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Retry', onPress: () => handleRetryMessage(item) },
+                      ]
+                    );
+                  }
+                }}
+              >
+                <MessageBubble
+                  message={item}
+                  showSender={Boolean(conversation?.isGroup)}
+                />
+              </TouchableOpacity>
             )}
             contentContainerStyle={styles.listContent}
             refreshControl={
@@ -229,6 +285,27 @@ const styles = StyleSheet.create({
   },
   innerContainer: {
     flex: 1,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.errorLight,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs + 2,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: COLORS.error,
+  },
+  errorBannerText: {
+    flex: 1,
+    marginLeft: SPACING.xs,
+    fontSize: TYPOGRAPHY.caption,
+    color: COLORS.error,
+  },
+  errorRetryText: {
+    fontSize: TYPOGRAPHY.caption,
+    fontWeight: '700',
+    color: COLORS.error,
+    paddingHorizontal: SPACING.xs,
   },
   headerInfoBtn: {
     padding: SPACING.xs,
