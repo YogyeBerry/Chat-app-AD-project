@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, FlatList, StyleSheet, RefreshControl } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useApp } from '../context/AppContext';
 import { userService } from '../services/userService';
 import UserListItem from '../components/UserListItem';
+import SearchBar from '../components/SearchBar';
 import LoadingState from '../components/LoadingState';
 import ErrorState from '../components/ErrorState';
 import EmptyState from '../components/EmptyState';
@@ -14,6 +15,7 @@ export default function UsersScreen() {
   const { baseUrl, currentUser } = useApp();
 
   const [users, setUsers] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
@@ -25,7 +27,6 @@ export default function UsersScreen() {
 
     try {
       const data = await userService.getUsers(baseUrl);
-      // Filter out current user from contacts directory
       const filtered = data.filter((u) => String(u.id) !== String(currentUser?.id));
       setUsers(filtered);
     } catch (err) {
@@ -39,6 +40,16 @@ export default function UsersScreen() {
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
+
+  const filteredUsers = useMemo(() => {
+    if (!searchQuery.trim()) return users;
+    const query = searchQuery.toLowerCase().trim();
+    return users.filter(
+      (user) =>
+        user.name.toLowerCase().includes(query) ||
+        (user.email && user.email.toLowerCase().includes(query))
+    );
+  }, [users, searchQuery]);
 
   const handleUserPress = (user) => {
     navigation.navigate('Chat', {
@@ -57,8 +68,14 @@ export default function UsersScreen() {
 
   return (
     <View style={styles.container}>
+      <SearchBar
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        onClear={() => setSearchQuery('')}
+        placeholder="Search contacts by name or email..."
+      />
       <FlatList
-        data={users}
+        data={filteredUsers}
         keyExtractor={(item) => String(item.id)}
         renderItem={({ item }) => (
           <UserListItem user={item} onPress={handleUserPress} />
@@ -72,11 +89,15 @@ export default function UsersScreen() {
         }
         ListEmptyComponent={
           <EmptyState
-            icon="people-outline"
-            title="No Users Found"
-            message="There are currently no other users registered on this network."
-            actionLabel="Refresh"
-            onAction={() => fetchUsers(false)}
+            icon={searchQuery ? 'search-outline' : 'people-outline'}
+            title={searchQuery ? 'No Results' : 'No Users Found'}
+            message={
+              searchQuery
+                ? `No contact matches "${searchQuery}".`
+                : 'There are currently no other users registered on this network.'
+            }
+            actionLabel={searchQuery ? 'Clear Search' : 'Refresh'}
+            onAction={searchQuery ? () => setSearchQuery('') : () => fetchUsers(false)}
           />
         }
       />
