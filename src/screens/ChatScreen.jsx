@@ -41,6 +41,39 @@ export default function ChatScreen() {
   const flatListRef = useRef(null);
   const pollingTimerRef = useRef(null);
 
+  // Initialize or fetch conversation if navigating directly from Contacts
+  const initDirectConversation = useCallback(async () => {
+    if (conversation) return;
+    if (!participant) return;
+
+    setInitLoading(true);
+    setError(null);
+    try {
+      const newConv = await conversationService.createConversation(
+        baseUrl,
+        {
+          participant_ids: [participant.id],
+          is_group: false,
+        },
+        currentUser?.id
+      );
+      setConversation(newConv);
+      navigation.setOptions({
+        title: newConv.title || participant.name,
+      });
+    } catch (err) {
+      setError(err.message || 'Could not initiate conversation');
+    } finally {
+      setInitLoading(false);
+    }
+  }, [baseUrl, participant, currentUser?.id, conversation, navigation]);
+
+  useEffect(() => {
+    if (!conversation && participant) {
+      initDirectConversation();
+    }
+  }, [conversation, participant, initDirectConversation]);
+
   // Check if returning from custom camera with captured image
   useEffect(() => {
     if (capturedPhoto) {
@@ -99,7 +132,7 @@ export default function ChatScreen() {
 
       pollingTimerRef.current = setInterval(() => {
         loadMessages(false, true);
-      }, 6000);
+      }, 4000);
     }
 
     return () => {
