@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, FlatList, StyleSheet, RefreshControl } from 'react-native';
+import { View, FlatList, StyleSheet, RefreshControl, Text, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import { conversationService } from '../services/conversationService';
 import ConversationListItem from '../components/ConversationListItem';
 import LoadingState from '../components/LoadingState';
 import ErrorState from '../components/ErrorState';
 import EmptyState from '../components/EmptyState';
-import { COLORS } from '../constants/theme';
+import { COLORS, SPACING, TYPOGRAPHY } from '../constants/theme';
 
 export default function ConversationsScreen() {
   const navigation = useNavigation();
@@ -49,38 +50,52 @@ export default function ConversationsScreen() {
     return <LoadingState message="Loading your conversations..." />;
   }
 
-  if (error && conversations.length === 0) {
-    return <ErrorState message={error} onRetry={() => fetchConversations(false)} />;
-  }
-
   return (
     <View style={styles.container}>
-      <FlatList
-        data={conversations}
-        keyExtractor={(item) => String(item.id)}
-        renderItem={({ item }) => (
-          <ConversationListItem
-            conversation={item}
-            onPress={handleOpenConversation}
-          />
-        )}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => fetchConversations(true)}
-            colors={[COLORS.primary]}
-          />
-        }
-        ListEmptyComponent={
-          <EmptyState
-            icon="chatbubble-ellipses-outline"
-            title="No Conversations Yet"
-            message="Start a direct chat or create a group from the contacts tab."
-            actionLabel="Find Contacts"
-            onAction={() => navigation.navigate('UsersTab')}
-          />
-        }
-      />
+      {error && conversations.length > 0 && (
+        <View style={styles.errorBanner}>
+          <Ionicons name="warning-outline" size={16} color={COLORS.error} />
+          <Text style={styles.errorBannerText}>{error}</Text>
+          <TouchableOpacity onPress={() => fetchConversations(true)}>
+            <Text style={styles.errorRetryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {error && conversations.length === 0 ? (
+        <ErrorState
+          message={error}
+          onRetry={() => fetchConversations(false)}
+        />
+      ) : (
+        <FlatList
+          data={conversations}
+          keyExtractor={(item) => String(item.id)}
+          renderItem={({ item }) => (
+            <ConversationListItem
+              conversation={item}
+              onPress={handleOpenConversation}
+            />
+          )}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => fetchConversations(true)}
+              colors={[COLORS.primary]}
+              tintColor={COLORS.primary}
+            />
+          }
+          ListEmptyComponent={
+            <EmptyState
+              icon="chatbubbles-outline"
+              title="No Conversations Yet"
+              message="Start a direct chat or create a group from your contacts directory."
+              actionLabel="Discover Contacts"
+              onAction={() => navigation.navigate('UsersTab')}
+            />
+          }
+        />
+      )}
     </View>
   );
 }
@@ -89,5 +104,26 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.errorLight,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs + 2,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: COLORS.error,
+  },
+  errorBannerText: {
+    flex: 1,
+    marginLeft: SPACING.xs,
+    fontSize: TYPOGRAPHY.caption,
+    color: COLORS.error,
+  },
+  errorRetryText: {
+    fontSize: TYPOGRAPHY.caption,
+    fontWeight: '700',
+    color: COLORS.error,
+    paddingHorizontal: SPACING.xs,
   },
 });
