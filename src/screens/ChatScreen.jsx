@@ -87,6 +87,59 @@ export default function ChatScreen() {
     }
   }, [conversation?.id, loadMessages]);
 
+  // Handle sending text message with optimistic update
+  const handleSendMessage = async () => {
+    const textToSend = inputText.trim();
+    if (!textToSend && !selectedImage) return;
+
+    if (!conversation?.id) {
+      Alert.alert('Conversation not ready', 'Please wait until conversation initializes.');
+      return;
+    }
+
+    const tempId = `temp_${Date.now()}`;
+    const optimisticMessage = {
+      id: tempId,
+      conversationId: conversation.id,
+      senderId: currentUser?.id,
+      senderName: currentUser?.name || 'You',
+      content: textToSend,
+      mediaUrl: selectedImage?.uri || null,
+      createdAt: new Date().toISOString(),
+      isMine: true,
+      status: 'sending',
+    };
+
+    setMessages((prev) => [...prev, optimisticMessage]);
+    setInputText('');
+    setSending(true);
+
+    try {
+      const sentMessage = await conversationService.sendMessage(
+        baseUrl,
+        {
+          conversation_id: conversation.id,
+          content: textToSend,
+          media_url: selectedImage?.uri || undefined,
+        },
+        currentUser?.id
+      );
+
+      // Replace optimistic entry with confirmed server response
+      setMessages((prev) =>
+        prev.map((msg) => (msg.id === tempId ? { ...sentMessage, isMine: true } : msg))
+      );
+    } catch (err) {
+      // Mark as failed in UI
+      setMessages((prev) =>
+        prev.map((msg) => (msg.id === tempId ? { ...msg, status: 'failed' } : msg))
+      );
+      Alert.alert('Send Failed', err.message || 'Could not deliver message.');
+    } finally {
+      setSending(false);
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -142,7 +195,7 @@ export default function ChatScreen() {
         <MessageInput
           text={inputText}
           onChangeText={setInputText}
-          onSend={() => {}}
+          onSend={handleSendMessage}
           onPickImage={() => {}}
           onCamera={() => {}}
           onCustomCamera={() => {}}
