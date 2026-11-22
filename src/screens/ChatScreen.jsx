@@ -38,6 +38,7 @@ export default function ChatScreen() {
   const [selectedImage, setSelectedImage] = useState(null);
 
   const flatListRef = useRef(null);
+  const pollingTimerRef = useRef(null);
 
   // Configure navigation header title and info button
   useEffect(() => {
@@ -60,11 +61,11 @@ export default function ChatScreen() {
   }, [conversation, participant, navigation]);
 
   // Load message history for active conversation
-  const loadMessages = useCallback(async (isRefresh = false) => {
+  const loadMessages = useCallback(async (isRefresh = false, silent = false) => {
     if (!conversation?.id) return;
     if (isRefresh) setRefreshing(true);
-    else setFetchingMessages(true);
-    setError(null);
+    else if (!silent) setFetchingMessages(true);
+    if (!silent) setError(null);
 
     try {
       const history = await conversationService.getMessages(
@@ -74,9 +75,11 @@ export default function ChatScreen() {
       );
       setMessages(history);
     } catch (err) {
-      setError(err.message || 'Failed to retrieve message history');
+      if (!silent) {
+        setError(err.message || 'Failed to retrieve message history');
+      }
     } finally {
-      setFetchingMessages(false);
+      if (!silent) setFetchingMessages(false);
       setRefreshing(false);
     }
   }, [baseUrl, conversation?.id, currentUser?.id]);
@@ -84,7 +87,18 @@ export default function ChatScreen() {
   useEffect(() => {
     if (conversation?.id) {
       loadMessages();
+
+      // Background message polling refresh mechanism (every 6 seconds)
+      pollingTimerRef.current = setInterval(() => {
+        loadMessages(false, true);
+      }, 6000);
     }
+
+    return () => {
+      if (pollingTimerRef.current) {
+        clearInterval(pollingTimerRef.current);
+      }
+    };
   }, [conversation?.id, loadMessages]);
 
   // Handle sending text message with optimistic update
