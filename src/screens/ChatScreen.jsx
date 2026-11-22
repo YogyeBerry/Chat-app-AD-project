@@ -15,6 +15,7 @@ import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import { conversationService } from '../services/conversationService';
+import { mediaService } from '../services/mediaService';
 import MessageBubble from '../components/MessageBubble';
 import MessageInput from '../components/MessageInput';
 import EmptyState from '../components/EmptyState';
@@ -25,7 +26,7 @@ export default function ChatScreen() {
   const navigation = useNavigation();
   const { baseUrl, currentUser } = useApp();
 
-  const { conversation: initialConversation, participant } = route.params || {};
+  const { conversation: initialConversation, participant, capturedPhoto } = route.params || {};
 
   const [conversation, setConversation] = useState(initialConversation || null);
   const [messages, setMessages] = useState([]);
@@ -39,6 +40,13 @@ export default function ChatScreen() {
 
   const flatListRef = useRef(null);
   const pollingTimerRef = useRef(null);
+
+  // Check if returning from custom camera with captured image
+  useEffect(() => {
+    if (capturedPhoto) {
+      setSelectedImage(capturedPhoto);
+    }
+  }, [capturedPhoto]);
 
   // Configure navigation header title and info button
   useEffect(() => {
@@ -89,7 +97,6 @@ export default function ChatScreen() {
     if (conversation?.id) {
       loadMessages();
 
-      // Background message polling refresh mechanism (every 6 seconds)
       pollingTimerRef.current = setInterval(() => {
         loadMessages(false, true);
       }, 6000);
@@ -102,9 +109,38 @@ export default function ChatScreen() {
     };
   }, [conversation?.id, loadMessages]);
 
+  // Media Pickers
+  const handlePickGallery = async () => {
+    try {
+      const asset = await mediaService.pickImageFromGallery();
+      if (asset) {
+        setSelectedImage(asset);
+      }
+    } catch (err) {
+      Alert.alert('Gallery Access', err.message);
+    }
+  };
+
+  const handleLaunchCamera = async () => {
+    try {
+      const asset = await mediaService.launchNativeCamera();
+      if (asset) {
+        setSelectedImage(asset);
+      }
+    } catch (err) {
+      Alert.alert('Camera Access', err.message);
+    }
+  };
+
+  const handleLaunchCustomCamera = () => {
+    navigation.navigate('CustomCamera', {
+      targetScreen: 'Chat',
+      conversation,
+    });
+  };
+
   // Retry sending a previously failed message
   const handleRetryMessage = async (failedMsg) => {
-    // Mark back to sending status
     setMessages((prev) =>
       prev.map((m) => (m.id === failedMsg.id ? { ...m, status: 'sending' } : m))
     );
@@ -131,10 +167,11 @@ export default function ChatScreen() {
     }
   };
 
-  // Handle sending text message with optimistic update
+  // Handle sending message
   const handleSendMessage = async () => {
     const textToSend = inputText.trim();
-    if (!textToSend && !selectedImage) return;
+    const imageToSend = selectedImage;
+    if (!textToSend && !imageToSend) return;
 
     if (!conversation?.id) {
       Alert.alert('Conversation not ready', 'Please wait until conversation initializes.');
@@ -148,7 +185,7 @@ export default function ChatScreen() {
       senderId: currentUser?.id,
       senderName: currentUser?.name || 'You',
       content: textToSend,
-      mediaUrl: selectedImage?.uri || null,
+      mediaUrl: imageToSend?.base64 || imageToSend?.uri || null,
       createdAt: new Date().toISOString(),
       isMine: true,
       status: 'sending',
@@ -156,6 +193,7 @@ export default function ChatScreen() {
 
     setMessages((prev) => [...prev, optimisticMessage]);
     setInputText('');
+    setSelectedImage(null);
     setSending(true);
 
     try {
@@ -164,17 +202,15 @@ export default function ChatScreen() {
         {
           conversation_id: conversation.id,
           content: textToSend,
-          media_url: selectedImage?.uri || undefined,
+          media_url: imageToSend?.base64 || imageToSend?.uri || undefined,
         },
         currentUser?.id
       );
 
-      // Replace optimistic entry with confirmed server response
       setMessages((prev) =>
         prev.map((msg) => (msg.id === tempId ? { ...sentMessage, isMine: true } : msg))
       );
     } catch (err) {
-      // Mark as failed in UI
       setMessages((prev) =>
         prev.map((msg) => (msg.id === tempId ? { ...msg, status: 'failed' } : msg))
       );
@@ -266,9 +302,9 @@ export default function ChatScreen() {
           text={inputText}
           onChangeText={setInputText}
           onSend={handleSendMessage}
-          onPickImage={() => {}}
-          onCamera={() => {}}
-          onCustomCamera={() => {}}
+          onPickImage={handlePickGallery}
+          onCamera={handleLaunchCamera}
+          onCustomCamera={handleLaunchCustomCamera}
           sending={sending}
           previewImage={selectedImage}
           onRemovePreview={() => setSelectedImage(null)}
