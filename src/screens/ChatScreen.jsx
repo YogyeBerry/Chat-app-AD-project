@@ -2,13 +2,20 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
   StyleSheet,
   ActivityIndicator,
+  TouchableOpacity,
   Alert,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import { conversationService } from '../services/conversationService';
+import MessageBubble from '../components/MessageBubble';
+import MessageInput from '../components/MessageInput';
 import { COLORS, SPACING, TYPOGRAPHY } from '../constants/theme';
 
 export default function ChatScreen() {
@@ -19,60 +26,76 @@ export default function ChatScreen() {
   const { conversation: initialConversation, participant } = route.params || {};
 
   const [conversation, setConversation] = useState(initialConversation || null);
+  const [messages, setMessages] = useState([]);
+  const [inputText, setInputText] = useState('');
   const [initLoading, setInitLoading] = useState(!initialConversation && Boolean(participant));
+  const [fetchingMessages, setFetchingMessages] = useState(false);
+  const [sending, setSending] = useState(false);
   const [error, setError] = useState(null);
+  const [selectedImage, setSelectedImage] = useState(null);
 
-  // Initialize or fetch conversation if only participant was supplied
-  const initDirectConversation = useCallback(async () => {
-    if (conversation) return;
-    if (!participant) return;
+  const flatListRef = useRef(null);
 
-    setInitLoading(true);
-    setError(null);
-    try {
-      // Create or retrieve 1-to-1 conversation with participant
-      const newConv = await conversationService.createConversation(
-        baseUrl,
-        {
-          participant_ids: [participant.id],
-          is_group: false,
-        },
-        currentUser?.id
-      );
-      setConversation(newConv);
-      navigation.setOptions({
-        title: newConv.title || participant.name,
-      });
-    } catch (err) {
-      // In case server requires existing conversation lookup, or fallback
-      setError(err.message || 'Could not initiate conversation');
-    } finally {
-      setInitLoading(false);
-    }
-  }, [baseUrl, participant, currentUser, conversation, navigation]);
-
+  // Configure navigation header title and info button
   useEffect(() => {
-    if (!conversation && participant) {
-      initDirectConversation();
-    }
-  }, [conversation, participant, initDirectConversation]);
-
-  if (initLoading) {
-    return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.initText}>Starting conversation with {participant?.name}...</Text>
-      </View>
-    );
-  }
+    navigation.setOptions({
+      headerTitle: conversation?.title || participant?.name || 'Chat',
+      headerRight: () => (
+        <TouchableOpacity
+          onPress={() => {
+            navigation.navigate('ParticipantInfo', {
+              conversation,
+              participant,
+            });
+          }}
+          style={styles.headerInfoBtn}
+        >
+          <Ionicons name="information-circle-outline" size={24} color={COLORS.primary} />
+        </TouchableOpacity>
+      ),
+    });
+  }, [conversation, participant, navigation]);
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.infoText}>
-        Conversation Active: {conversation?.id ? conversation.id : 'Pending'}
-      </Text>
-      {error && <Text style={styles.errorText}>{error}</Text>}
-    </View>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+    >
+      <View style={styles.innerContainer}>
+        {initLoading ? (
+          <View style={styles.centerContainer}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+            <Text style={styles.initText}>Connecting to conversation...</Text>
+          </View>
+        ) : (
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            keyExtractor={(item) => String(item.id)}
+            renderItem={({ item }) => (
+              <MessageBubble
+                message={item}
+                showSender={Boolean(conversation?.isGroup)}
+              />
+            )}
+            contentContainerStyle={styles.listContent}
+          />
+        )}
+
+        <MessageInput
+          text={inputText}
+          onChangeText={setInputText}
+          onSend={() => {}}
+          onPickImage={() => {}}
+          onCamera={() => {}}
+          onCustomCamera={() => {}}
+          sending={sending}
+          previewImage={selectedImage}
+          onRemovePreview={() => setSelectedImage(null)}
+        />
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -80,13 +103,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
-    padding: SPACING.md,
+  },
+  innerContainer: {
+    flex: 1,
+  },
+  headerInfoBtn: {
+    padding: SPACING.xs,
   },
   centerContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.background,
     padding: SPACING.xl,
   },
   initText: {
@@ -94,13 +121,7 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.body,
     color: COLORS.textSecondary,
   },
-  infoText: {
-    fontSize: TYPOGRAPHY.body,
-    color: COLORS.text,
-  },
-  errorText: {
-    marginTop: SPACING.sm,
-    color: COLORS.error,
-    fontSize: TYPOGRAPHY.caption,
+  listContent: {
+    paddingVertical: SPACING.md,
   },
 });
