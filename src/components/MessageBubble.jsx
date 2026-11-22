@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
 import { formatMessageTime } from '../utils/formatters';
+import Avatar from './Avatar';
 import { COLORS, SPACING, TYPOGRAPHY } from '../constants/theme';
 
 export default function MessageBubble({ message, showSender = false }) {
@@ -8,46 +9,66 @@ export default function MessageBubble({ message, showSender = false }) {
   const timeFormatted = formatMessageTime(message.createdAt);
 
   return (
-    <View style={[styles.wrapper, isMine ? styles.wrapperMine : styles.wrapperOther]}>
-      {showSender && !isMine && message.senderName ? (
-        <Text style={styles.senderName}>{message.senderName}</Text>
-      ) : null}
-
-      <View
-        style={[
-          styles.bubble,
-          isMine ? styles.bubbleMine : styles.bubbleOther,
-        ]}
-      >
-        {message.mediaUrl ? (
-          <Image
-            source={{ uri: message.mediaUrl }}
-            style={styles.mediaImage}
-            resizeMode="cover"
+    <View
+      style={[
+        styles.outerContainer,
+        isMine ? styles.outerMine : styles.outerOther,
+      ]}
+    >
+      {!isMine && showSender && (
+        <View style={styles.avatarWrapper}>
+          <Avatar
+            name={message.senderName || 'User'}
+            uri={message.senderAvatar}
+            size={28}
           />
+        </View>
+      )}
+
+      <View style={[styles.wrapper, isMine ? styles.wrapperMine : styles.wrapperOther]}>
+        {showSender && !isMine && message.senderName ? (
+          <Text style={styles.senderName}>{message.senderName}</Text>
         ) : null}
 
-        {message.content ? (
-          <Text
-            style={[
-              styles.content,
-              isMine ? styles.contentMine : styles.contentOther,
-            ]}
-          >
-            {message.content}
-          </Text>
-        ) : null}
+        <View
+          style={[
+            styles.bubble,
+            isMine ? styles.bubbleMine : styles.bubbleOther,
+          ]}
+        >
+          {message.mediaUrl ? (
+            <Image
+              source={{ uri: message.mediaUrl }}
+              style={styles.mediaImage}
+              resizeMode="cover"
+            />
+          ) : null}
 
-        <View style={styles.metaRow}>
-          <Text style={[styles.time, isMine ? styles.timeMine : styles.timeOther]}>
-            {timeFormatted}
-          </Text>
-          {isMine && message.status === 'sending' && (
-            <Text style={styles.statusIndicator}> 🕒</Text>
-          )}
-          {isMine && message.status === 'failed' && (
-            <Text style={styles.statusFailed}> ⚠️</Text>
-          )}
+          {message.content ? (
+            <Text
+              style={[
+                styles.content,
+                isMine ? styles.contentMine : styles.contentOther,
+              ]}
+            >
+              {message.content}
+            </Text>
+          ) : null}
+
+          <View style={styles.metaRow}>
+            <Text style={[styles.time, isMine ? styles.timeMine : styles.timeOther]}>
+              {timeFormatted}
+            </Text>
+            {isMine && (
+              <Text style={styles.statusIndicator}>
+                {message.status === 'sending'
+                  ? ' 🕒'
+                  : message.status === 'failed'
+                  ? ' ⚠️'
+                  : ' ✓✓'}
+              </Text>
+            )}
+          </View>
         </View>
       </View>
     </View>
@@ -55,10 +76,24 @@ export default function MessageBubble({ message, showSender = false }) {
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
+  outerContainer: {
+    flexDirection: 'row',
     marginVertical: 4,
     paddingHorizontal: SPACING.md,
-    maxWidth: '82%',
+    alignItems: 'flex-end',
+  },
+  outerMine: {
+    justifyContent: 'flex-end',
+  },
+  outerOther: {
+    justifyContent: 'flex-start',
+  },
+  avatarWrapper: {
+    marginRight: 6,
+    marginBottom: 4,
+  },
+  wrapper: {
+    maxWidth: '80%',
   },
   wrapperMine: {
     alignSelf: 'flex-end',
@@ -120,9 +155,6 @@ const styles = StyleSheet.create({
   },
   statusIndicator: {
     fontSize: TYPOGRAPHY.tiny,
-  },
-  statusFailed: {
-    fontSize: TYPOGRAPHY.tiny,
-    color: COLORS.error,
+    color: 'rgba(255, 255, 255, 0.85)',
   },
 });
