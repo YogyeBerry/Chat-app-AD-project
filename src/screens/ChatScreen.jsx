@@ -8,6 +8,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   TouchableOpacity,
+  RefreshControl,
   Alert,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
@@ -16,6 +17,7 @@ import { useApp } from '../context/AppContext';
 import { conversationService } from '../services/conversationService';
 import MessageBubble from '../components/MessageBubble';
 import MessageInput from '../components/MessageInput';
+import EmptyState from '../components/EmptyState';
 import { COLORS, SPACING, TYPOGRAPHY } from '../constants/theme';
 
 export default function ChatScreen() {
@@ -30,6 +32,7 @@ export default function ChatScreen() {
   const [inputText, setInputText] = useState('');
   const [initLoading, setInitLoading] = useState(!initialConversation && Boolean(participant));
   const [fetchingMessages, setFetchingMessages] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
@@ -56,6 +59,34 @@ export default function ChatScreen() {
     });
   }, [conversation, participant, navigation]);
 
+  // Load message history for active conversation
+  const loadMessages = useCallback(async (isRefresh = false) => {
+    if (!conversation?.id) return;
+    if (isRefresh) setRefreshing(true);
+    else setFetchingMessages(true);
+    setError(null);
+
+    try {
+      const history = await conversationService.getMessages(
+        baseUrl,
+        conversation.id,
+        currentUser?.id
+      );
+      setMessages(history);
+    } catch (err) {
+      setError(err.message || 'Failed to retrieve message history');
+    } finally {
+      setFetchingMessages(false);
+      setRefreshing(false);
+    }
+  }, [baseUrl, conversation?.id, currentUser?.id]);
+
+  useEffect(() => {
+    if (conversation?.id) {
+      loadMessages();
+    }
+  }, [conversation?.id, loadMessages]);
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -67,6 +98,11 @@ export default function ChatScreen() {
           <View style={styles.centerContainer}>
             <ActivityIndicator size="large" color={COLORS.primary} />
             <Text style={styles.initText}>Connecting to conversation...</Text>
+          </View>
+        ) : fetchingMessages && messages.length === 0 ? (
+          <View style={styles.centerContainer}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+            <Text style={styles.initText}>Loading message history...</Text>
           </View>
         ) : (
           <FlatList
@@ -80,6 +116,26 @@ export default function ChatScreen() {
               />
             )}
             contentContainerStyle={styles.listContent}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={() => loadMessages(true)}
+                colors={[COLORS.primary]}
+                tintColor={COLORS.primary}
+              />
+            }
+            ListEmptyComponent={
+              <EmptyState
+                icon="chatbox-outline"
+                title="Say Hello!"
+                message="No messages in this chat yet. Send the first message below."
+              />
+            }
+            onContentSizeChange={() => {
+              if (messages.length > 0) {
+                flatListRef.current?.scrollToEnd({ animated: true });
+              }
+            }}
           />
         )}
 
@@ -123,5 +179,6 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingVertical: SPACING.md,
+    flexGrow: 1,
   },
 });
