@@ -96,6 +96,14 @@ export default function ConversationsScreen() {
           }
         />
       )}
+
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => navigation.navigate('UsersTab')}
+        activeOpacity={0.85}
+      >
+        <Ionicons name="chatbubble-ellipses" size={24} color="#FFFFFF" />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -104,6 +112,22 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.27,
+    shadowRadius: 4.65,
   },
   errorBanner: {
     flexDirection: 'row',

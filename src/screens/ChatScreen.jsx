@@ -132,7 +132,7 @@ export default function ChatScreen() {
 
       pollingTimerRef.current = setInterval(() => {
         loadMessages(false, true);
-      }, 4000);
+      }, 2000);
     }
 
     return () => {
