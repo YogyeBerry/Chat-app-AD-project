@@ -185,6 +185,8 @@ export default function ChatScreen() {
           conversation_id: failedMsg.conversationId,
           content: failedMsg.content,
           media_url: failedMsg.mediaUrl || undefined,
+          sender_id: currentUser?.id,
+          sender_name: currentUser?.name,
         },
         currentUser?.id
       );
@@ -236,6 +238,8 @@ export default function ChatScreen() {
           conversation_id: conversation.id,
           content: textToSend,
           media_url: imageToSend?.base64 || imageToSend?.uri || undefined,
+          sender_id: currentUser?.id,
+          sender_name: currentUser?.name,
         },
         currentUser?.id
       );

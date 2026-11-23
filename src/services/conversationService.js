@@ -40,7 +40,10 @@ export const conversationService = {
    */
   async createConversation(baseUrl, payload, currentUserId) {
     const client = createApiClient(baseUrl);
-    const response = await client.post(API_CONFIG.ENDPOINTS.CONVERSATIONS, payload);
+    const response = await client.post(API_CONFIG.ENDPOINTS.CONVERSATIONS, {
+      ...payload,
+      creator_id: currentUserId,
+    });
     const raw = response.data?.conversation || response.data?.data || response.data;
     return normalizeConversation(raw, currentUserId);
   },
