@@ -1,0 +1,107 @@
+name: Build Android APK
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build & Package Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: ⬇️ Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: ☕ Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: 📱 Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: 🟢 Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 🐘 Set up Gradle & Cache
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: 📦 Install Project Dependencies
+        run: npm ci
+
+      - name: ⚙️ Generate Native Android Project (Expo Prebuild)
+        run: npx expo prebuild --platform android --clean
+
+      - name: 🔨 Build Android Release APK with Gradle
+        run: |
+          cd android
+          chmod +x gradlew
+          if ./gradlew assembleRelease --no-daemon; then
+            echo "assembleRelease succeeded."
+          else
+            echo "assembleRelease failed, building assembleDebug..."
+            ./gradlew assembleDebug --no-daemon
+          fi
+          cd ..
+
+      - name: 🔍 Locate and Prepare Generated APK
+        id: locate-apk
+        run: |
+          mkdir -p build-output
+          RELEASE_APK=$(find android/app/build/outputs/apk/release -name "*.apk" 2>/dev/null | head -n 1)
+          DEBUG_APK=$(find android/app/build/outputs/apk/debug -name "*.apk" 2>/dev/null | head -n 1)
+          ANY_APK=$(find android/app/build/outputs/apk -name "*.apk" 2>/dev/null | head -n 1)
+
+          if [ -n "$RELEASE_APK" ] && [ -f "$RELEASE_APK" ]; then
+            echo "Found Release APK: $RELEASE_APK"
+            cp "$RELEASE_APK" build-output/ChatApp-release.apk
+          elif [ -n "$DEBUG_APK" ] && [ -f "$DEBUG_APK" ]; then
+            echo "Found Debug APK: $DEBUG_APK"
+            cp "$DEBUG_APK" build-output/ChatApp-release.apk
+          elif [ -n "$ANY_APK" ] && [ -f "$ANY_APK" ]; then
+            echo "Found APK: $ANY_APK"
+            cp "$ANY_APK" build-output/ChatApp-release.apk
+          else
+            echo "::error::No APK file generated in android/app/build/outputs/apk!"
+            exit 1
+          fi
+
+          echo "APK_PATH=build-output/ChatApp-release.apk" >> $GITHUB_ENV
+          echo "apk_path=build-output/ChatApp-release.apk" >> $GITHUB_OUTPUT
+
+      - name: 📤 Upload APK as GitHub Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Android-APK
+          path: ${{ env.APK_PATH }}
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: 🚀 Create GitHub Release & Attach APK
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.APK_PATH }}
+          name: Release ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
