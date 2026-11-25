@@ -15,7 +15,7 @@ export default function MessageBubble({ message, showSender = false }) {
         isMine ? styles.outerMine : styles.outerOther,
       ]}
     >
-      {!isMine && showSender && (
+      {!isMine && (
         <View style={styles.avatarWrapper}>
           <Avatar
             name={message.senderName || 'User'}
@@ -26,7 +26,7 @@ export default function MessageBubble({ message, showSender = false }) {
       )}
 
       <View style={[styles.wrapper, isMine ? styles.wrapperMine : styles.wrapperOther]}>
-        {showSender && !isMine && message.senderName ? (
+        {!isMine && message.senderName ? (
           <Text style={styles.senderName}>{message.senderName}</Text>
         ) : null}
 

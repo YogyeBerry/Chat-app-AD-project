@@ -18,7 +18,7 @@ let users = [
 let conversations = [
   {
     id: 'conv_1',
-    name: 'Alex Johnson',
+    name: '',
     is_group: false,
     participants: [users[0], users[1]],
     latest_message: {
@@ -111,7 +111,7 @@ app.post('/conversation', (req, res) => {
 
   const newConv = {
     id: `conv_${Date.now()}`,
-    name: title,
+    name: is_group ? title : '',
     is_group: Boolean(is_group),
     participants: fullParticipants,
     latest_message: null,
@@ -149,11 +149,16 @@ app.post('/message', (req, res) => {
 
   messages.push(newMsg);
 
-  // Update latest message in conversation
+  // Update latest message in conversation and ensure sender is in participants
   const conv = conversations.find((c) => String(c.id) === String(conversation_id));
   if (conv) {
     conv.latest_message = newMsg;
     conv.updated_at = newMsg.created_at;
+
+    const senderObj = senderUser || { id: String(sender_id), name: resolvedName };
+    if (!conv.participants.some((p) => String(p.id) === String(sender_id))) {
+      conv.participants.push(senderObj);
+    }
   }
 
   res.status(201).json({ message: newMsg });

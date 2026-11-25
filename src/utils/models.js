@@ -98,16 +98,20 @@ export function normalizeConversation(raw, currentUserId) {
   }
 
   // Derive conversation title
-  let title = raw.name || raw.title || raw.group_name || '';
-  if (!title) {
-    if (isGroup) {
+  let title = '';
+  if (isGroup) {
+    title = raw.name || raw.title || raw.group_name || '';
+    if (!title) {
       title = participants.length > 0
         ? participants.map((p) => p.name).join(', ')
         : 'Group Conversation';
-    } else {
-      const otherParticipant = participants.find((p) => String(p.id) !== String(currentUserId));
-      title = otherParticipant ? otherParticipant.name : (participants[0]?.name || 'Direct Conversation');
     }
+  } else {
+    // In 1-on-1 direct messaging, the title MUST be the other participant relative to the current user
+    const otherParticipant = participants.find((p) => String(p.id) !== String(currentUserId));
+    title = otherParticipant
+      ? otherParticipant.name
+      : (participants[0]?.name || raw.name || 'Direct Conversation');
   }
 
   // Derive last message

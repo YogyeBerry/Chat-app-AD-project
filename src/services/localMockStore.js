@@ -16,7 +16,7 @@ let users = [...INITIAL_USERS];
 let conversations = [
   {
     id: 'conv_1',
-    name: 'Alex Johnson',
+    name: '',
     is_group: false,
     participants: [INITIAL_USERS[0], INITIAL_USERS[1]],
     latest_message: {
