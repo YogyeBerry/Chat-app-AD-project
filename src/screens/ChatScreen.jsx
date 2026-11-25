@@ -213,6 +213,19 @@ export default function ChatScreen() {
       return;
     }
 
+    let resolvedMediaUrl = null;
+    if (imageToSend) {
+      resolvedMediaUrl = imageToSend.base64 || imageToSend.uri || null;
+      if (
+        resolvedMediaUrl &&
+        typeof resolvedMediaUrl === 'string' &&
+        !resolvedMediaUrl.startsWith('data:') &&
+        !resolvedMediaUrl.startsWith('http')
+      ) {
+        resolvedMediaUrl = `data:image/jpeg;base64,${resolvedMediaUrl}`;
+      }
+    }
+
     const tempId = `temp_${Date.now()}`;
     const optimisticMessage = {
       id: tempId,
@@ -220,7 +233,7 @@ export default function ChatScreen() {
       senderId: currentUser?.id,
       senderName: currentUser?.name || 'You',
       content: textToSend,
-      mediaUrl: imageToSend?.base64 || imageToSend?.uri || null,
+      mediaUrl: resolvedMediaUrl,
       createdAt: new Date().toISOString(),
       isMine: true,
       status: 'sending',
@@ -237,7 +250,7 @@ export default function ChatScreen() {
         {
           conversation_id: conversation.id,
           content: textToSend,
-          media_url: imageToSend?.base64 || imageToSend?.uri || undefined,
+          media_url: resolvedMediaUrl || undefined,
           sender_id: currentUser?.id,
           sender_name: currentUser?.name,
         },

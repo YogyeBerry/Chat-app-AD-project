@@ -66,7 +66,7 @@ export default function CustomCameraScreen() {
 
     try {
       const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.8,
+        quality: 0.4,
         base64: true,
       });
 
@@ -119,12 +119,14 @@ export default function CustomCameraScreen() {
         </View>
       ) : (
         // Live Viewfinder Mode
-        <CameraView
-          style={styles.camera}
-          facing={facing}
-          enableTorch={flash === 'on'}
-          ref={cameraRef}
-        >
+        <View style={styles.cameraWrapper}>
+          <CameraView
+            style={StyleSheet.absoluteFillObject}
+            facing={facing}
+            enableTorch={flash === 'on'}
+            ref={cameraRef}
+          />
+
           {/* Top Control Bar */}
           <View style={styles.topBar}>
             <TouchableOpacity
@@ -161,7 +163,7 @@ export default function CustomCameraScreen() {
 
             <View style={{ width: 44 }} />
           </View>
-        </CameraView>
+        </View>
       )}
     </View>
   );
@@ -217,9 +219,10 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontWeight: '600',
   },
-  camera: {
+  cameraWrapper: {
     flex: 1,
     justifyContent: 'space-between',
+    backgroundColor: '#000000',
   },
   topBar: {
     flexDirection: 'row',
