@@ -16,7 +16,9 @@ export const conversationService = {
   async getConversations(baseUrl, currentUserId) {
     try {
       const client = createApiClient(baseUrl);
-      const response = await client.get(API_CONFIG.ENDPOINTS.CONVERSATIONS);
+      const response = await client.get(API_CONFIG.ENDPOINTS.CONVERSATIONS, {
+        params: currentUserId ? { user_id: currentUserId } : {},
+      });
       const rawData = response.data;
 
       let list = [];

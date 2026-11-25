@@ -219,10 +219,9 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontWeight: '600',
   },
-  cameraWrapper: {
+  camera: {
     flex: 1,
     justifyContent: 'space-between',
-    backgroundColor: '#000000',
   },
   topBar: {
     flexDirection: 'row',

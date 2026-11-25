@@ -46,6 +46,25 @@ console.assert(conv.isGroup === true, 'Conversation isGroup mismatch');
 console.assert(conv.participants.length === 2, 'Conversation participant count mismatch');
 console.log('✔ Test 3 Passed: Conversation and nested participants normalized.');
 
+// Test 3B: 1-on-1 Direct Conversation Integrity (Never turns into group)
+const rawDirectConversation = {
+  id: 'conv_direct_1',
+  name: '',
+  is_group: false,
+  participants: [
+    { id: '1', name: 'You' },
+    { id: '2', name: 'Alex Johnson' },
+  ],
+  latest_message: rawMessage,
+};
+const directForAlex = normalizeConversation(rawDirectConversation, '2');
+const directForYou = normalizeConversation(rawDirectConversation, '1');
+console.assert(directForAlex.isGroup === false, 'Direct conversation incorrectly marked as group for Alex');
+console.assert(directForYou.isGroup === false, 'Direct conversation incorrectly marked as group for You');
+console.assert(directForAlex.title === 'You', 'Relative title for Alex should be "You"');
+console.assert(directForYou.title === 'Alex Johnson', 'Relative title for You should be "Alex Johnson"');
+console.log('✔ Test 3B Passed: 1-on-1 Direct conversation stays direct and titles resolve dynamically.');
+
 // Test 4: Formatters
 const formattedTime = formatMessageTime('2026-11-22T14:35:00.000Z');
 console.assert(typeof formattedTime === 'string' && formattedTime.length > 0, 'formatMessageTime failed');

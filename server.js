@@ -83,13 +83,20 @@ app.get('/user/profile', (req, res) => {
 
 // GET /conversation - Fetch all conversations
 app.get('/conversation', (req, res) => {
+  const userId = req.query.user_id;
+  if (userId) {
+    const filtered = conversations.filter((c) =>
+      c.participants && c.participants.some((p) => String(p.id) === String(userId))
+    );
+    return res.json(filtered);
+  }
   res.json(conversations);
 });
 
 // POST /conversation - Create conversation
 app.post('/conversation', (req, res) => {
   const { participant_ids = [], is_group = false, name = '', creator_id = '1' } = req.body;
-  const participants = users.filter((u) => participant_ids.map(String).includes(String(u.id)));
+  const isGroupBool = Boolean(is_group);
 
   // Find or identify creator
   const creator = users.find((u) => String(u.id) === String(creator_id)) || {
@@ -97,22 +104,33 @@ app.post('/conversation', (req, res) => {
     name: 'You',
   };
 
-  // Ensure creator is in participants list
-  const fullParticipants = participants.some((p) => String(p.id) === String(creator.id))
-    ? participants
-    : [creator, ...participants];
+  // For 1-on-1 direct conversations, check if direct chat already exists between these 2 users
+  if (!isGroupBool && participant_ids.length > 0) {
+    const otherId = String(participant_ids[0]);
+    const existing = conversations.find((c) => {
+      if (c.is_group) return false;
+      const ids = (c.participants || []).map((p) => String(p.id));
+      return ids.length === 2 && ids.includes(String(creator.id)) && ids.includes(otherId);
+    });
+    if (existing) {
+      return res.json({ conversation: existing });
+    }
+  }
+
+  const otherUsers = users.filter((u) => participant_ids.map(String).includes(String(u.id)));
+  const fullParticipants = isGroupBool
+    ? [creator, ...otherUsers.filter((u) => String(u.id) !== String(creator.id))]
+    : [creator, ...otherUsers.filter((u) => String(u.id) !== String(creator.id))].slice(0, 2);
 
   let title = name;
-  if (!title) {
-    title = is_group
-      ? participants.map((p) => p.name).join(', ')
-      : participants[0]?.name || 'Chat';
+  if (!title && isGroupBool) {
+    title = fullParticipants.map((p) => p.name).join(', ') || 'Group Conversation';
   }
 
   const newConv = {
     id: `conv_${Date.now()}`,
-    name: is_group ? title : '',
-    is_group: Boolean(is_group),
+    name: isGroupBool ? title : '',
+    is_group: isGroupBool,
     participants: fullParticipants,
     latest_message: null,
     unread_count: 0,
@@ -149,15 +167,18 @@ app.post('/message', (req, res) => {
 
   messages.push(newMsg);
 
-  // Update latest message in conversation and ensure sender is in participants
+  // Update latest message in conversation
   const conv = conversations.find((c) => String(c.id) === String(conversation_id));
   if (conv) {
     conv.latest_message = newMsg;
     conv.updated_at = newMsg.created_at;
 
-    const senderObj = senderUser || { id: String(sender_id), name: resolvedName };
-    if (!conv.participants.some((p) => String(p.id) === String(sender_id))) {
-      conv.participants.push(senderObj);
+    // Only add to participants if it is an open group conversation
+    if (conv.is_group) {
+      const senderObj = senderUser || { id: String(sender_id), name: resolvedName };
+      if (!conv.participants.some((p) => String(p.id) === String(sender_id))) {
+        conv.participants.push(senderObj);
+      }
     }
   }
 

@@ -87,7 +87,7 @@ export function normalizeConversation(raw, currentUserId) {
   }
 
   const id = String(raw.id || raw._id || raw.conversation_id || raw.conversationId || '');
-  const isGroup = Boolean(raw.is_group || raw.isGroup || (raw.participants && raw.participants.length > 2));
+  const isGroup = Boolean(raw.is_group ?? raw.isGroup ?? false);
   
   // Process participants
   let participants = [];

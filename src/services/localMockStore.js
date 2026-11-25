@@ -93,6 +93,11 @@ export const localMockStore = {
   },
 
   getConversations(currentUserId = '1') {
+    if (currentUserId) {
+      return conversations.filter((c) =>
+        c.participants && c.participants.some((p) => String(p.id) === String(currentUserId))
+      );
+    }
     return [...conversations];
   },
 
@@ -151,24 +156,36 @@ export const localMockStore = {
   },
 
   createConversation({ participant_ids = [], is_group = false, name = '', creator_id = '1' }) {
-    const participants = users.filter((u) => participant_ids.map(String).includes(String(u.id)));
+    const isGroupBool = Boolean(is_group);
     const creator = users.find((u) => String(u.id) === String(creator_id)) || users[0];
 
-    const fullParticipants = participants.some((p) => String(p.id) === String(creator.id))
-      ? participants
-      : [creator, ...participants];
+    // For 1-on-1 direct conversations, return existing conversation if one already exists
+    if (!isGroupBool && participant_ids.length > 0) {
+      const otherId = String(participant_ids[0]);
+      const existing = conversations.find((c) => {
+        if (c.is_group) return false;
+        const ids = (c.participants || []).map((p) => String(p.id));
+        return ids.length === 2 && ids.includes(String(creator.id)) && ids.includes(otherId);
+      });
+      if (existing) {
+        return existing;
+      }
+    }
+
+    const otherUsers = users.filter((u) => participant_ids.map(String).includes(String(u.id)));
+    const fullParticipants = isGroupBool
+      ? [creator, ...otherUsers.filter((u) => String(u.id) !== String(creator.id))]
+      : [creator, ...otherUsers.filter((u) => String(u.id) !== String(creator.id))].slice(0, 2);
 
     let title = name;
-    if (!title) {
-      title = is_group
-        ? participants.map((p) => p.name).join(', ')
-        : participants[0]?.name || 'Chat';
+    if (!title && isGroupBool) {
+      title = fullParticipants.map((p) => p.name).join(', ') || 'Group Chat';
     }
 
     const newConv = {
       id: `local_conv_${Date.now()}`,
-      name: title,
-      is_group: Boolean(is_group),
+      name: isGroupBool ? title : '',
+      is_group: isGroupBool,
       participants: fullParticipants,
       latest_message: null,
       unread_count: 0,
